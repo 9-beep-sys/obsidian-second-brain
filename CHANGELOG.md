@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **The Hermes session hook no longer starts a consolidation per turn, and no longer starts one from inside another (#345).** `hooks/hermes-hooks.config.example.yaml` registered the hook on `on_session_end`, which Hermes fires after every turn, and the `hermes -z` run the hook starts fires it again. It is now registered on `on_session_finalize`. The script also refuses to re-enter: the consolidation child gets `OBSIDIAN_HERMES_CONSOLIDATING=1` and a hook that sees it exits, and a per-user mode-0600 lock file (PID inside, stale locks replaced) allows one consolidation at a time. The background run no longer inherits the hook's stdout, so the hook returns `{}` at once instead of when the consolidation ends. If you pasted the old block into `~/.hermes/config.yaml`, rename `on_session_end` to `on_session_finalize` there.
+
 ## [0.18.0] - 2026-10-17 - Crew
 
 ### Added
