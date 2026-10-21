@@ -877,6 +877,10 @@ Knobs: `OBSIDIAN_SEARCH_SEMANTIC=0` disables the layer entirely. `OBSIDIAN_EMBED
 
 ## FAQ
 
+### Can I search without an agent?
+Run `uv run python scripts/vault_search.py "query" --limit 6 --lexical` for a JSON result array.
+The script uses `OBSIDIAN_VAULT_PATH` from the environment or toolkit config; omit `--lexical` to follow the existing semantic-search environment setting.
+
 ### Codex vs Claude Code: do I have to pick one?
 No. Crew lets Claude Code, Codex and Cursor work as one team. After every job, each agent writes one line to a shared logbook, and the others read it before they answer. Run `/crew setup` once. See [Crew](#crew-one-logbook-for-all-your-agents).
 

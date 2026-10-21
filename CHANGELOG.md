@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Standalone `scripts/vault_search.py` exposes the existing vault search as JSON without an agent, with lexical opt-out and built-tree regression coverage (#351).
+
+### Added
+
 - **Optional First-Brain wiki-style variant (#330, by @2Obe).** `/obsidian-init` configures a human-maintained source layer and wiki destinations through its existing agent-driven workflow. A source folder spelled differently (`First_Brain/`, `first brain/`) is protected by the exact name init found. Individual ingestion preserves originals, records local provenance, and keeps source conflicts in the derived layer. Protection is instruction-based; no bulk ingestion or background synchronization is introduced.
 
 ## [0.18.1] - 2026-10-20
