@@ -15,6 +15,7 @@ import math
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import unicodedata
@@ -1082,16 +1083,78 @@ def move_note(source: str, destination: str) -> Dict[str, Any]:
         return {"error": f"destination already exists: {destination}"}
     dst.parent.mkdir(parents=True, exist_ok=True)
     # A preflight exists() check followed by os.replace() has a race: another
-    # writer can create the destination between them and be overwritten. A hard
-    # link is exclusive at the filesystem boundary; unlinking the source then
-    # completes the move. If unlinking fails, both copies remain (safe) rather
-    # than either note being lost.
+    # writer can create the destination between them and be overwritten. So the
+    # destination is created with O_CREAT | O_EXCL, which fails if it exists in
+    # the same syscall. It is a new file, never a hard link to the source: cloud
+    # sync clients (OneDrive, Dropbox, iCloud) track files by identity, and on
+    # OneDrive a brief shared inode left two notes with swapped contents (#324). The
+    # source is removed only after the copy reads back byte for byte and the
+    # source still holds what was copied; on any failure the half-made
+    # destination is removed only if it is still the file this call created.
     try:
-        os.link(src, dst)
+        data = src.read_bytes()
+    except OSError as exc:
+        return {"error": f"could not read source: {exc}"}
+    try:
+        fd = os.open(str(dst), os.O_CREAT | os.O_EXCL | os.O_RDWR | getattr(os, "O_BINARY", 0))
     except FileExistsError:
         return {"error": f"destination already exists: {destination}"}
     except OSError as exc:
         return {"error": f"could not create destination safely: {exc}"}
+    # Raw descriptor calls, not a buffered file object: a buffered close after a
+    # failed write flushes again and raises past the error return.
+    open_fd = [fd]
+
+    def close_fd():
+        if open_fd:
+            try:
+                os.close(open_fd.pop())
+            except OSError:
+                pass
+
+    try:
+        view = memoryview(data)
+        while view:
+            written = os.write(fd, view)
+            if not written:
+                raise OSError("destination accepted no bytes")
+            view = view[written:]
+        os.fsync(fd)
+        os.lseek(fd, 0, os.SEEK_SET)
+        chunks = []
+        while True:
+            chunk = os.read(fd, 1 << 20)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        if b"".join(chunks) != data:
+            raise OSError("destination did not read back identical to the source")
+        if src.read_bytes() != data:
+            raise OSError("source changed during the move; it was left in place")
+    except OSError as exc:
+        # While our descriptor is open its inode cannot be freed, so no other
+        # file can reuse the number (ext4 reuses it at once). Windows cannot
+        # unlink a file it holds open, but there no other writer can replace it
+        # meanwhile either, so close first and compare. An inode of 0 (some
+        # network shares) identifies nothing, so the copy is left in place.
+        try:
+            created = os.fstat(fd).st_ino
+        except OSError:
+            created = 0
+        if os.name == "nt":
+            close_fd()
+        try:
+            if created and dst.stat().st_ino == created:
+                dst.unlink()
+        except OSError:
+            pass
+        return {"error": f"could not create destination safely: {exc}"}
+    finally:
+        close_fd()
+    try:
+        shutil.copystat(src, dst)
+    except OSError:
+        pass
     try:
         src.unlink()
     except OSError as exc:
@@ -1176,7 +1239,7 @@ def validate_note(rel: str) -> Dict[str, Any]:
     seen = set()
     for link in _wikilinks(text):
         norm = _norm_link(link)
-        if norm and norm not in index and norm not in seen:
+        if norm not in index and norm not in seen:
             seen.add(norm)
             issues.append(f"unresolved wikilink: [[{link}]]")
     return {"path": rel, "ok": not issues, "issues": issues}
@@ -1238,9 +1301,14 @@ def vault_health() -> Dict[str, Any]:
         for link in links:
             norm = _norm_link(link)
             linked_to.add(norm)
-            if norm and norm not in index and len(wanted) < 10:
+            if norm not in index and len(wanted) < 10:
                 wanted.append({"in": rel, "link": link})
-    orphans = [p for s, p in note_paths.items() if s not in linked_to and s not in has_outbound]
+    # Home.md and _CLAUDE.md are entry points nothing links to, exempt from the
+    # orphan check in scripts/vault_health.py too (#344).
+    orphans = [
+        p for s, p in note_paths.items()
+        if s not in linked_to and s not in has_outbound and p not in ("Home.md", "_CLAUDE.md")
+    ]
     return {
         "notes_scanned": count,
         "capped": count >= _MAX_FILES_SCANNED,
@@ -1493,9 +1561,13 @@ _INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
 
 def _wikilinks(text: str) -> List[str]:
     """Return the raw target of each [[wikilink]] (before any | alias or # anchor),
-    ignoring links quoted inside fenced code blocks or inline code spans."""
+    ignoring links quoted inside fenced code blocks or inline code spans.
+
+    A trailing backslash is dropped: it is the escape of the alias pipe inside
+    a Markdown table cell (`[[Note\\|alias]]`), not part of the target. Same
+    handling as scripts/vault_health.py (#344)."""
     stripped = _INLINE_CODE_RE.sub("", _CODE_FENCE_RE.sub("", text))
-    return [m.group(1).strip() for m in _WIKILINK_RE.finditer(stripped)]
+    return [m.group(1).strip().rstrip("\\").strip() for m in _WIKILINK_RE.finditer(stripped)]
 
 
 def _nfc(s: str) -> str:

@@ -311,12 +311,20 @@ def replace_block(text: str, name: str, body: str) -> str:
     return text.rstrip() + ("\n\n" if text.strip() else "") + block + "\n"
 
 
+def agent_home(agent: str) -> Path:
+    """Codex reads hooks.json and AGENTS.md from $CODEX_HOME when it is set."""
+    if agent == "codex" and os.environ.get("CODEX_HOME"):
+        return Path(os.environ["CODEX_HOME"]).expanduser()
+    return Path.home() / f".{agent}"
+
+
 def rules_path(agent: str) -> Path:
+    if agent == "codex":
+        return agent_home("codex") / "AGENTS.md"
     return (
         Path.home()
         / {
             "claude": ".claude/CLAUDE.md",
-            "codex": ".codex/AGENTS.md",
             "cursor": ".cursor/rules/crew.mdc",
             "grokbot": ".config/crew/grok-profile.md",
         }[agent]
@@ -465,8 +473,7 @@ def merge_hooks(config: dict, agent: str, command: str, previous: list[str]) -> 
 def setup(folder: Path, args) -> str:
     # Validate the destination before registering any hooks that point at it.
     folder.mkdir(parents=True, exist_ok=True)
-    home = Path.home()
-    agents = args.agents or [a for a in AGENTS[:3] if (home / f".{a}").is_dir() or shutil.which(a)]
+    agents = args.agents or [a for a in AGENTS[:3] if agent_home(a).is_dir() or shutil.which(a)]
     destination = config_dir()
     script = destination / "crew.py"
     result = [f"Crew folder: {folder}"]
@@ -480,7 +487,7 @@ def setup(folder: Path, args) -> str:
         for agent in agents:
             if agent == "grokbot":
                 continue
-            target = home / f".{agent}" / ("settings.json" if agent == "claude" else "hooks.json")
+            target = agent_home(agent) / ("settings.json" if agent == "claude" else "hooks.json")
             command = shell_command(
                 [
                     python_command(),

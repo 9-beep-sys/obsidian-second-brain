@@ -205,6 +205,57 @@ def test_append_to_log_leaves_a_log_it_cannot_decode_alone(tmp_path, monkeypatch
     assert "log.md is not UTF-8" in err and "nothing appended" in err
 
 
+def test_append_to_log_writes_the_per_day_file_when_logs_exists(tmp_path, monkeypatch):
+    """Since /obsidian-init creates Logs/, log.md is a pointer ("entries live in
+    Logs/"). The research toolkit wrote into the pointer anyway (#348); it now
+    follows the MCP server's _append_log_line convention."""
+    from research.lib import vault
+
+    root = tmp_path / "vault"
+    (root / "Logs").mkdir(parents=True)
+    pointer = "# Log\n\nEntries live in Logs/, never in this file.\n"
+    (root / "log.md").write_text(pointer, encoding="utf-8")
+    monkeypatch.setattr(vault, "VAULT_PATH", root)
+    monkeypatch.setattr(vault, "datetime", _Noon)
+
+    assert vault.append_to_log('youtube on "a talk"') is True
+    day = (root / "Logs" / "2026-09-02.md").read_text(encoding="utf-8")
+    assert day.startswith("---\ntype: log\ndate: 2026-09-02\nai-first: true\n---\n")
+    assert day.endswith('**12:00** - research-toolkit | youtube on "a talk"\n')
+    assert (root / "log.md").read_text(encoding="utf-8") == pointer
+
+
+def test_append_to_log_appends_to_an_existing_per_day_file(tmp_path, monkeypatch):
+    from research.lib import vault
+
+    root = tmp_path / "vault"
+    (root / "Logs").mkdir(parents=True)
+    existing = "---\ntype: log\ndate: 2026-09-02\nai-first: true\n---\n\n# 2026-09-02\n\n**09:00** - save | a\n"
+    (root / "Logs" / "2026-09-02.md").write_text(existing, encoding="utf-8")
+    monkeypatch.setattr(vault, "VAULT_PATH", root)
+    monkeypatch.setattr(vault, "datetime", _Noon)
+
+    assert vault.append_to_log("research on b") is True
+    day = (root / "Logs" / "2026-09-02.md").read_text(encoding="utf-8")
+    assert day == existing + "**12:00** - research-toolkit | research on b\n"
+
+
+def test_append_to_log_leaves_a_per_day_file_it_cannot_decode_alone(tmp_path, monkeypatch, capsys):
+    from research.lib import vault
+
+    root = tmp_path / "vault"
+    (root / "Logs").mkdir(parents=True)
+    legacy = "# 2026-09-02\n\ncafé\n".encode("cp1252")
+    (root / "Logs" / "2026-09-02.md").write_bytes(legacy)
+    monkeypatch.setattr(vault, "VAULT_PATH", root)
+    monkeypatch.setattr(vault, "datetime", _Noon)
+
+    assert vault.append_to_log("more") is False
+    assert (root / "Logs" / "2026-09-02.md").read_bytes() == legacy
+    assert not (root / "log.md").exists()
+    assert "2026-09-02.md is not UTF-8" in capsys.readouterr().err
+
+
 def test_no_stale_tokenizer_copies_left_in_command_paths():
     """The private copy survived #159, #188 and #192 because nothing fenced it.
     Command-path scripts must not re-grow a whitespace-split + len filter;

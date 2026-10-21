@@ -25,6 +25,8 @@ def sandbox(tmp_path, monkeypatch):
     monkeypatch.setenv("CREW_DIR", str(folder))
     monkeypatch.setenv("OBSIDIAN_ENV_FILE", str(home / "empty.env"))
     monkeypatch.delenv("OBSIDIAN_VAULT_PATH", raising=False)
+    # A CODEX_HOME from the developer's shell would point setup at their real Codex config.
+    monkeypatch.delenv("CODEX_HOME", raising=False)
     monkeypatch.chdir(tmp_path)
     return home, folder
 
@@ -303,6 +305,32 @@ def test_real_installed_hook_commands(sandbox, agent, events):
         if n:
             assert "Hook job 0" not in context
     run("show", "--agent", agent, "--hook", payload="{oops", ok=False)
+
+
+def test_setup_writes_codex_files_under_codex_home(sandbox, monkeypatch):
+    """Codex reads hooks.json and AGENTS.md from $CODEX_HOME, so setup must write there."""
+    home, folder = sandbox
+    codex_home = home / "codex-alt"
+    codex_home.mkdir()
+    monkeypatch.setenv("CODEX_HOME", str(codex_home))
+    run("--dir", str(folder), "setup", "--agents", "codex")
+    hooks = json.loads((codex_home / "hooks.json").read_text(encoding="utf-8"))["hooks"]
+    assert "SessionStart" in hooks and "UserPromptSubmit" in hooks
+    assert "<!-- CREW-TEAM begin -->" in (codex_home / "AGENTS.md").read_text(encoding="utf-8")
+    assert not (home / ".codex").exists()
+
+
+def test_setup_detects_codex_by_codex_home(sandbox, monkeypatch):
+    home, folder = sandbox
+    codex_home = home / "codex-alt"
+    codex_home.mkdir()
+    monkeypatch.setenv("CODEX_HOME", str(codex_home))
+    # No agent binaries on PATH, so only the config folder can select Codex.
+    empty = home / "empty-bin"
+    empty.mkdir()
+    monkeypatch.setenv("PATH", str(empty))
+    run("--dir", str(folder), "setup")
+    assert (codex_home / "hooks.json").exists()
 
 
 def test_setup_relocation_replaces_only_owned_hooks(sandbox):

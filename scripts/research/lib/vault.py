@@ -133,7 +133,12 @@ def print_save_links(note_path: Path, file=None) -> None:
 
 
 def append_to_log(operation_summary: str) -> bool:
-    """Append to the vault's log.md per _CLAUDE.md rules. Returns True if appended.
+    """Append one operation-log line per _CLAUDE.md rules. Returns True if appended.
+
+    The vault's own convention decides where, as the MCP server's
+    _append_log_line does: a per-day `Logs/YYYY-MM-DD.md` when `Logs/` exists
+    (as /obsidian-init creates it, leaving log.md a pointer), else a dated
+    section in log.md.
 
     A log that is not UTF-8 (one an earlier Windows run wrote in its code page)
     is left exactly as it is, as append_to_daily does: UTF-8 bytes appended to
@@ -141,19 +146,29 @@ def append_to_log(operation_summary: str) -> bool:
     refusal is said on stderr, so a run that saved its note but changed no log
     does not look like a silent success.
     """
-    log_path = VAULT_PATH / "log.md"
+    now = datetime.now()
+    date = now.strftime("%Y-%m-%d")
+    logs = VAULT_PATH / "Logs"
+    if logs.is_dir():
+        log_path = logs / f"{date}.md"
+        entry = f"**{now.strftime('%H:%M')}** - research-toolkit | {operation_summary}\n"
+    else:
+        log_path = VAULT_PATH / "log.md"
+        entry = f"\n## [{date}] research-toolkit | {operation_summary}\n"
     if log_path.exists():
         try:
             log_path.read_bytes().decode("utf-8")
         except UnicodeDecodeError:
             print(
-                "[vault] log.md is not UTF-8 - left untouched, nothing appended. "
+                f"[vault] {log_path.name} is not UTF-8 - left untouched, nothing appended. "
                 "Re-save it as UTF-8 once (see the README FAQ) and re-run.",
                 file=sys.stderr,
             )
             return False
-    date = datetime.now().strftime("%Y-%m-%d")
-    entry = f"\n## [{date}] research-toolkit | {operation_summary}\n"
+    elif logs.is_dir():
+        log_path.write_text(
+            f"---\ntype: log\ndate: {date}\nai-first: true\n---\n\n# {date}\n\n", encoding="utf-8"
+        )
     with log_path.open("a", encoding="utf-8") as f:
         f.write(entry)
     return True

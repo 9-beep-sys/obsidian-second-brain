@@ -644,12 +644,12 @@ def render_home(name: str, preset_key: str, preset: dict, jobs: list, mode: str,
         # preset writes: a wiki-style vault creates those notes too, and a note
         # nothing links is an orphan in its own health check.
         board_names = (jobs + ["Personal"]) if preset_key == "default" else [b.name for b in preset["boards"]]
-        board_links = " · ".join(f"[[boards/{n}\\|📋 {n}]]" for n in board_names)
-        folder_links = " · ".join(f"[[{p}/\\|📁 {p.split('/')[-1].replace('-', ' ').title()}]]"
+        board_links = " · ".join(f"[[boards/{n}|📋 {n}]]" for n in board_names)
+        folder_links = " · ".join(f"📁 {p.split('/')[-1].replace('-', ' ').title()}"
                                   for p in resolve_folders(preset["folders"], style)
                                   if p not in ("boards", "templates", "_trash"))
         seed_links = " · ".join(
-            f"[[{resolve_folder(folder, style)}/{note}\\|{label}]]"
+            f"[[{resolve_folder(folder, style)}/{note}|{label}]]"
             for folder, note, label in SEED_NOTES.get(preset_key, ())
         )
         nav = f"{board_links}\n\n{folder_links}" + (f"\n\n{seed_links}" if seed_links else "")
@@ -658,14 +658,14 @@ def render_home(name: str, preset_key: str, preset: dict, jobs: list, mode: str,
         nav = (
             "| Work | Life | System |\n"
             "|------|------|--------|\n"
-            f"| [[Boards/{primary_job}\\|📋 Work Board]] | [[Goals/{YEAR} Goals\\|🎯 Goals]] | [[Templates/\\|📝 Templates]] |\n"
+            f"| [[Boards/{primary_job}\\|📋 Work Board]] | [[Goals/{YEAR} Goals\\|🎯 Goals]] | 📝 Templates |\n"
             "| [[Boards/Personal\\|📋 Personal]] | [[Finances/Income Streams\\|💵 Income]] | [[Mentions/Mentions Log\\|💬 Mentions]] |\n"
-            "| [[Projects/\\|🔨 Projects]] | [[Health/Health Dashboard\\|🏋️ Health]] | [[People/\\|👥 People]] |\n"
-            "| [[Content/Content Calendar\\|📅 Content]] | [[Ideas/\\|💡 Ideas]] | [[Reviews/\\|📆 Reviews]] |"
+            "| 🔨 Projects | [[Health/Health Dashboard\\|🏋️ Health]] | 👥 People |\n"
+            "| [[Content/Content Calendar\\|📅 Content]] | 💡 Ideas | 📆 Reviews |"
         )
     else:
-        board_links = " · ".join(f"[[Boards/{b.name}\\|📋 {b.name}]]" for b in preset["boards"])
-        folder_links = " · ".join(f"[[{f.split('/')[0]}/\\|📁 {f.split('/')[0]}]]"
+        board_links = " · ".join(f"[[Boards/{b.name}|📋 {b.name}]]" for b in preset["boards"])
+        folder_links = " · ".join(f"📁 {f.split('/')[0]}"
                                   for f in preset["folders"]
                                   if "/" not in f and f not in ("Boards", "Templates", "_trash"))
         nav = f"{board_links}\n\n{folder_links}"
