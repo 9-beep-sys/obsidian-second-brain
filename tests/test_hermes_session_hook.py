@@ -2,7 +2,8 @@
 
 Hermes fires `on_session_end` after every turn, and a `hermes -z` started by the
 hook fires it again, so the hook must be registered on `on_session_finalize`
-and must not start a second consolidation while one is running.
+and must not start a second consolidation while one is running, nor within
+OBSIDIAN_HERMES_MIN_INTERVAL seconds of the last one.
 """
 
 from __future__ import annotations
@@ -35,11 +36,12 @@ def _stub(tmp_path: Path, sleep: float = 0.0) -> Path:
 def _run(payload: dict, tmp_path: Path, stub: Path, **extra) -> subprocess.CompletedProcess:
     vault = tmp_path / "vault"
     vault.mkdir(exist_ok=True)
-    env = {**os.environ,
-           "OBSIDIAN_VAULT_PATH": str(vault),
-           "OBSIDIAN_HERMES_HOOK_ENABLED": "1",
-           "OBSIDIAN_HERMES_CONSOLIDATE_CMD": str(stub),
-           "TMPDIR": str(tmp_path)}
+    # Start from an environment with no OBSIDIAN_HERMES_* setting of the caller's.
+    env = {k: v for k, v in os.environ.items() if not k.startswith("OBSIDIAN_HERMES_")}
+    env.update({"OBSIDIAN_VAULT_PATH": str(vault),
+                "OBSIDIAN_HERMES_HOOK_ENABLED": "1",
+                "OBSIDIAN_HERMES_CONSOLIDATE_CMD": str(stub),
+                "TMPDIR": str(tmp_path)})
     env.update(extra)
     return subprocess.run([BASH, str(HOOK)], input=json.dumps(payload), env=env,
                           capture_output=True, text=True, timeout=30)
@@ -70,10 +72,11 @@ def test_single_session_starts_consolidation(tmp_path):
 
 def test_no_second_consolidation_while_one_runs(tmp_path):
     stub = _stub(tmp_path, sleep=2)
-    _run({"session_id": "s1"}, tmp_path, stub)
+    # Interval off, so only the lock can stop the second run.
+    _run({"session_id": "s1"}, tmp_path, stub, OBSIDIAN_HERMES_MIN_INTERVAL="0")
     assert _runs(tmp_path, 1) == 1
     # The consolidation's own `hermes -z` run fires the hook again.
-    r = _run({"session_id": "s2"}, tmp_path, stub)
+    r = _run({"session_id": "s2"}, tmp_path, stub, OBSIDIAN_HERMES_MIN_INTERVAL="0")
     assert r.returncode == 0 and r.stdout.strip() == "{}"
     assert _runs(tmp_path, 2, wait=1.0) == 1
 
@@ -87,8 +90,25 @@ def test_env_marker_guard(tmp_path):
 
 def test_lock_released_after_consolidation(tmp_path):
     stub = _stub(tmp_path)
+    _run({"session_id": "s1"}, tmp_path, stub, OBSIDIAN_HERMES_MIN_INTERVAL="0")
+    assert _runs(tmp_path, 1) == 1
+    time.sleep(0.5)
+    _run({"session_id": "s2"}, tmp_path, stub, OBSIDIAN_HERMES_MIN_INTERVAL="0")
+    assert _runs(tmp_path, 2) == 2
+
+
+def test_min_interval_blocks_back_to_back_runs(tmp_path):
+    # The marker may not reach a hook that runs inside the gateway, and the
+    # child's finalize event may land after its lock is released. Two runs back
+    # to back, marker unset and lock free, still start one consolidation.
+    stub = _stub(tmp_path)
     _run({"session_id": "s1"}, tmp_path, stub)
     assert _runs(tmp_path, 1) == 1
     time.sleep(0.5)
-    _run({"session_id": "s2"}, tmp_path, stub)
-    assert _runs(tmp_path, 2) == 2
+    assert not list(tmp_path.glob("obsidian-hermes-session-end-*.lock"))
+    r = _run({"session_id": "s2"}, tmp_path, stub)
+    assert r.returncode == 0 and r.stdout.strip() == "{}"
+    assert _runs(tmp_path, 2, wait=1.0) == 1
+    [stamp] = tmp_path.glob("obsidian-hermes-session-end-*.stamp")
+    if os.name != "nt":
+        assert stamp.stat().st_mode & 0o777 == 0o600

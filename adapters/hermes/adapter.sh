@@ -293,7 +293,8 @@ under the `hooks:` block of `~/.hermes/config.yaml`). This build ships it:
   consolidation pass and prints `{}` (the observer-hook contract). It mirrors the
   Claude bg-agent's trust model exactly: OPT-IN, ships INERT, no-ops unless BOTH
   `OBSIDIAN_VAULT_PATH` and `OBSIDIAN_HERMES_HOOK_ENABLED=1` are set; add/update
-  /link only, never delete or archive.
+  /link only, never delete or archive. It starts at most one consolidation per
+  `OBSIDIAN_HERMES_MIN_INTERVAL` seconds (default 21600, 6 hours; 0 turns it off).
 - **`hooks/hermes-hooks.config.example.yaml`** - the paste-in
   `hooks:` block for `~/.hermes/config.yaml` registering the hook.
 

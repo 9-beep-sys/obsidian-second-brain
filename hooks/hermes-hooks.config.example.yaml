@@ -10,6 +10,9 @@
 # environment (it writes to the vault unattended). See the script header for the
 # trust caveat. To disable later, clear OBSIDIAN_HERMES_HOOK_ENABLED.
 #
+# At most one consolidation per OBSIDIAN_HERMES_MIN_INTERVAL seconds (default
+# 21600, 6 hours; 0 turns the interval off), counted from the start of the last.
+#
 # session lifecycle events take no matcher (matchers apply only to
 # pre_tool_call / post_tool_call). The script receives the on_session_finalize JSON
 # payload on stdin and must print JSON on stdout; this one prints `{}`.

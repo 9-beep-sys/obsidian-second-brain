@@ -15,6 +15,11 @@
 # Re-entry guard: the consolidation child gets OBSIDIAN_HERMES_CONSOLIDATING=1
 # and a hook that sees it exits at once; a per-user lock file (mode 0600) also
 # stops a second consolidation while one is running, even from another process.
+# Neither holds if the hook runs inside the Hermes gateway (the marker never
+# reaches it) and the child's finalize event lands after its lock is released,
+# so a per-user stamp file (mode 0600) holds the start time of the last
+# consolidation, and none starts within OBSIDIAN_HERMES_MIN_INTERVAL seconds
+# of it (default 21600, 6 hours; 0 turns the interval off).
 #
 # TRUST CAVEAT: like the Claude bg-agent, this writes to the vault UNATTENDED, so
 # it is OPT-IN and ships INERT. It does nothing unless BOTH are set:
@@ -87,6 +92,25 @@ if ! acquire_lock; then
   fi
   rm -f "$LOCK"
   acquire_lock || { emit_noop; exit 0; }
+fi
+
+# Minimum interval, checked under the lock so two hooks cannot both pass it.
+# The stamp sits next to the lock, holds the start time (epoch seconds) of the
+# last consolidation, and is trusted only when it is a regular file of ours.
+STAMP="${TMPDIR:-/tmp}/obsidian-hermes-session-end-$(id -u).stamp"
+MIN_INTERVAL="${OBSIDIAN_HERMES_MIN_INTERVAL:-21600}"
+[[ "$MIN_INTERVAL" =~ ^[0-9]+$ ]] || MIN_INTERVAL=21600
+NOW=$(date +%s)
+LAST=""
+[[ -f "$STAMP" && ! -L "$STAMP" && -O "$STAMP" ]] && LAST=$(head -n 1 "$STAMP" 2>/dev/null)
+if [[ "$LAST" =~ ^[0-9]+$ ]] && (( NOW >= LAST && NOW - LAST < MIN_INTERVAL )); then
+  rm -f "$LOCK"; emit_noop; exit 0
+fi
+# Written to a fresh temp file and renamed over the stamp, so a symlink
+# planted at the stamp path is replaced rather than followed.
+if STAMP_TMP=$(umask 077; mktemp "$STAMP.XXXXXX" 2>/dev/null); then
+  { printf '%s\n' "$NOW" > "$STAMP_TMP" && mv -f "$STAMP_TMP" "$STAMP"; } 2>/dev/null \
+    || rm -f "$STAMP_TMP"
 fi
 
 export OBSIDIAN_HERMES_CONSOLIDATING=1
