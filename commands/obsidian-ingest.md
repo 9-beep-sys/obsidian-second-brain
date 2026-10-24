@@ -54,7 +54,7 @@ Run only one folder ingestion per vault at a time. This minimal helper has no ac
 
 2. Classify the source type before reading the full content:
    - **Article/blog post** - extract key claims, people, tools, concepts
-   - **PDF/document** - extract structure, findings, recommendations
+   - **PDF/text document** (.pdf, .docx, .doc, .odt) - extract structure, findings, recommendations; convert Office/OpenDocument text files to PDF first (step 3)
    - **Transcript (meeting/podcast)** - extract speakers, decisions, action items, quotes
    - **YouTube video** - pull metadata, description, and transcript (see step 3 for method)
    - **Audio file** (.m4a, .mp3, .wav, .ogg, .webm) - transcribe, identify speakers, extract decisions/tasks/promises
@@ -97,7 +97,13 @@ Run only one folder ingestion per vault at a time. This minimal helper has no ac
    Save the image description to `raw/articles/` as a markdown summary with context.
 
    **For articles** - use the WebFetch tool to pull the page content
-   **For PDFs** - read the file directly
+   **For text documents** (.docx, .doc, .odt) - use the selected document in the vault, following the same `_CLAUDE.md` permissions and local-source rules as other files. Convert it to PDF:
+   ```bash
+   python "SKILL_ROOT/scripts/document_to_pdf.py" "path/to/document.docx"
+   ```
+   Requires Python 3.10+ and LibreOffice 26.2+, installed separately. Put `soffice` on PATH or add `--soffice "/path/to/soffice"` (Windows: prefer LibreOffice's `program/soffice.com`). The helper exports a private copy without comments or revision markup and prints the temporary PDF path; converter messages go to stderr. Continue at **For PDFs** below using that path. Keep the original document as the source, applying the existing `source_path` rules in step 5; do not use the temporary PDF as source identity. Remove the generated PDF and its temporary parent folder after capture. Conversion errors propagate normally; no extra validation or recovery flow.
+
+   **For PDFs** (native or converted above) - read the file directly
    **For local Markdown/text files** - read the original in place; classify by content, not by its folder name. Ingestion creates a separate raw capture, never moves or edits the input file.
    **For pasted text** - use as-is
 

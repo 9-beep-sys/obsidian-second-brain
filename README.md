@@ -73,7 +73,7 @@ Shared agent memory isn't new. What Crew adds is the three parts above.
   <a href="#install"><strong>Install &rarr;</strong></a> &middot;
   <a href="DEMOS.md">Demos</a> &middot;
   <a href="#what-happens-when-you-install-this">See it in action</a> &middot;
-  <a href="#48-commands">All commands</a> &middot;
+  <a href="#49-commands">All commands</a> &middot;
   <a href="#choose-your-preset">Presets</a> &middot;
   <a href="#the-vault-is-alive">OKM</a> &middot;
   <a href="https://github.com/eugeniughelbur/obsidian-second-brain/discussions">Discussions</a>
@@ -134,6 +134,9 @@ Claude transcribes it with a local Whisper install, attributes speakers where th
 **You screenshot a whiteboard:** `/obsidian-ingest photo.png`
 Claude reads the image, extracts text and structure, creates concept notes, links to related projects. A photo becomes knowledge.
 
+**You have a finished text document:** `/obsidian-ingest report.docx`
+Word (`.docx`, `.doc`) and OpenDocument (`.odt`) files uploaded or copied into the vault follow the same local-source rules as PDFs and Markdown. The helper converts a private copy to a temporary PDF, then ingestion uses the existing PDF path. Text and figures use that path; comments and revision markup are excluded. The original stays unchanged and remains the source under the existing provenance rules. Requires Python 3.10+ and [LibreOffice 26.2+](https://www.libreoffice.org/download/download-libreoffice/), installed separately. Run `python scripts/document_to_pdf.py "path/to/report.docx"`; it prints the PDF path. Put `soffice` on PATH or add `--soffice` with its executable path (Windows: `C:/Program Files/LibreOffice/program/soffice.com`; macOS: `/Applications/LibreOffice.app/Contents/MacOS/soffice`). Remove the generated PDF and its temporary parent folder after capture. No additional Python packages are needed. See [the ingest command](commands/obsidian-ingest.md). Presentation and spreadsheet formats remain outside scope.
+
 **You find a great video:** `/obsidian-ingest https://youtube.com/...`
 Claude doesn't summarize into one note. It REWRITES your existing pages. People get updated. Contradictions get resolved. Patterns trigger new synthesis pages. One URL in. The vault is smarter.
 
@@ -176,7 +179,7 @@ Free transcript via youtube-transcript-api. Optional metadata + top comments via
 | Finding patterns | Re-read dozens of notes | `/obsidian-emerge` finds them for you |
 | Challenging yourself | Nobody pushes back | `/obsidian-challenge` uses your own history against you |
 | Session continuity | Re-explain every time | `/obsidian-world` loads full context in 10 seconds |
-| Ingesting content | Read it, forget it | `/obsidian-ingest` rewrites 5-15 vault pages from 1 source (URLs, PDFs, audio, screenshots) |
+| Ingesting content | Read it, forget it | `/obsidian-ingest` rewrites 5-15 vault pages from 1 source (URLs, PDFs, Word/OpenDocument text files, audio, screenshots) |
 | Contradictions | You don't know they exist | `/obsidian-reconcile` resolves them automatically |
 | Synthesis | You connect dots manually | `/obsidian-synthesize` finds patterns across sources on its own |
 | Sharing vault data | Only Claude can read it | `/obsidian-export` gives any AI tool a clean snapshot |
@@ -262,7 +265,7 @@ Free transcript via youtube-transcript-api. Optional metadata + top comments via
 ```
   +------------------------------------------+
   |                                          |
-  |   LAYER 1: Operations (31 commands)      |
+  |   LAYER 1: Operations (32 commands)      |
   |   Claude remembers everything            |
   |                                          |
   +------------------------------------------+
@@ -289,7 +292,7 @@ Free transcript via youtube-transcript-api. Optional metadata + top comments via
   +------------------------------------------+
 ```
 
-48 commands total. The calendar command (`/obsidian-calendar`) is Claude Code only (needs the Google Calendar MCP), so the Codex / Gemini / OpenCode / Hermes / Pi / Agent Skills builds ship 47.
+49 commands total. The calendar command (`/obsidian-calendar`) is Claude Code only (needs the Google Calendar MCP), so the Codex / Gemini / OpenCode / Hermes / Pi / Agent Skills builds ship 48.
 
 **Layer 1** saves, organizes, ingests, reconciles, exports, schedules your calendar, and maintains your vault.
 **Layer 2** challenges your ideas, surfaces hidden patterns, bridges unrelated domains, and graduates ideas into projects.
@@ -299,16 +302,17 @@ Free transcript via youtube-transcript-api. Optional metadata + top comments via
 
 ---
 
-## 48 Commands
+## 49 Commands
 
 ### Operations -- Claude remembers
 
 | Command | What it does |
 |---|---|
 | `/obsidian-save` | Saves everything from the conversation -- decisions, tasks, people, ideas |
-| `/obsidian-ingest` | Ingest a URL, file, or resumable folder batch (text, PDFs, audio, images). The vault REWRITES itself. 5-15 pages touched per source. |
+| `/obsidian-ingest` | Ingest a URL, file, or resumable folder batch (text, PDFs, `.docx`/`.doc`/`.odt` via LibreOffice, audio, images). The vault REWRITES itself. 5-15 pages touched per source. |
 | `/obsidian-synthesize` | Auto-finds patterns across sources and writes synthesis pages |
 | `/obsidian-reconcile` | Finds contradictions and resolves them. The vault maintains its own truth. |
+| `/obsidian-checkin` | Asks you whether old people and project notes still hold. Shows what each says, re-asks until you answer, saves the news. |
 | `/obsidian-export` | Clean JSON/markdown snapshot any AI tool can read |
 | `/obsidian-daily` | Creates or updates today's daily note |
 | `/obsidian-calendar <mode>` | One calendar command, four modes: `agenda` (read a snapshot), `reconcile` (flag commitments not yet scheduled), `meeting` (event to note), `schedule` (create/move an event from a task or standalone) |
@@ -687,13 +691,13 @@ Codex users then run `/hooks` once to trust the hooks. Restart Cursor after setu
 
 <img src="media/plugin-install.gif" alt="Installing obsidian-second-brain through the Claude Code plugin marketplace: marketplace add, plugin install, status enabled." width="100%" />
 
-That ships all 48 commands, the skill manual, the session-context hook, the opt-in background agent (inert until you arm it - see [hooks/postcompact.hook.example.json](hooks/postcompact.hook.example.json)), and the vault MCP server. Then tell Claude where your vault lives by adding to the `env` section of `~/.claude/settings.json`:
+That ships all 49 commands, the skill manual, the session-context hook, the opt-in background agent (inert until you arm it - see [hooks/postcompact.hook.example.json](hooks/postcompact.hook.example.json)), and the vault MCP server. Then tell Claude where your vault lives by adding to the `env` section of `~/.claude/settings.json`:
 
 ```json
 "env": { "OBSIDIAN_VAULT_PATH": "/path/to/your/vault" }
 ```
 
-Restart Claude Code, then run `/obsidian-second-brain:obsidian-init` inside your vault. Plugin commands are namespaced, so every command is `/obsidian-second-brain:<name>` (type `/obsidian-second-brain:` to see all 48). Update later with `/plugin update obsidian-second-brain`.
+Restart Claude Code, then run `/obsidian-second-brain:obsidian-init` inside your vault. Plugin commands are namespaced, so every command is `/obsidian-second-brain:<name>` (type `/obsidian-second-brain:` to see all 49). Update later with `/plugin update obsidian-second-brain`.
 
 **Classic install (script).** Use this if you want the commands as bare names (`/obsidian-init`, `/research`, ...) or you are developing the skill and want live edits. One line (clones the skill, installs the slash commands, registers the session-context hook, and offers the research env):
 
@@ -877,9 +881,29 @@ Two ways to provide the embedding model:
 
 Knobs: `OBSIDIAN_SEARCH_SEMANTIC=0` disables the layer entirely. `OBSIDIAN_EMBED_MAX_CHUNKS=<n>` raises the per-note embedding cap from the default 8 chunks (~9,600 characters); a long-form vault of research dossiers or book-length notes embeds more of each note at the cost of a slower build, and text past the cap is not embedded. A value below 1 or one that is not a number falls back to 8 and says so on stderr, because the cap is applied as a slice: `0` would embed nothing and drop the note from the index. `OBSIDIAN_RRF_LEX_DEPTH=<n>` caps how many lexical results get a vote in the hybrid fusion (default 25, which caps nothing); lower it to 5-10 when a tail of term-frequency matches pushes an exact match out of the top results (#262). The index file is large and regenerable - gitignore it.
 
+### Capture from your phone (optional)
+
+Send a voice note, text, photo, PDF or link to a private Telegram bot, and it lands in your vault. A small poller on your computer does the work and replies to confirm:
+
+- **Voice** is transcribed (OpenAI Whisper, or local Whisper with no key) and added to today's daily note.
+- **Photos** are read and filed to the note they belong to. **PDFs** become a literature note. **Links** go to `/youtube`, `/x-read` or `/research`.
+- Every capture also joins a `catchup.md` queue. Back at your laptop, run `/obsidian-catchup` to review and integrate them together.
+
+Create the bot with @BotFather, then run one command:
+
+```bash
+cd integrations/telegram-journal && ./setup.sh
+```
+
+You need a Telegram bot token, an Anthropic API key, and for voice an OpenAI key or local Whisper. Full guide: [integrations/telegram-journal](integrations/telegram-journal/README.md).
+
 ---
 
 ## FAQ
+
+### Can I search without an agent?
+Run `uv run python scripts/vault_search.py "query" --limit 6 --lexical` for a JSON result array.
+The script uses `OBSIDIAN_VAULT_PATH` from the environment or toolkit config; omit `--lexical` to follow the existing semantic-search environment setting.
 
 ### Codex vs Claude Code: do I have to pick one?
 No. Crew lets Claude Code, Codex and Cursor work as one team. After every job, each agent writes one line to a shared logbook, and the others read it before they answer. Run `/crew setup` once. See [Crew](#crew-one-logbook-for-all-your-agents).
@@ -913,6 +937,9 @@ Yes. The skill is model-agnostic - the OpenCode, Codex, and Gemini builds are pl
 
 ### Does this work with Obsidian Sync?
 Yes. The skill writes to your vault as standard markdown files. Obsidian Sync, iCloud, Syncthing, and Git-based sync all work without modification.
+
+### Can I add notes from my phone?
+Yes, through the optional Telegram bot. Send a voice note while you walk, and it is transcribed into today's daily note. Photos, PDFs and links are filed too. See [Capture from your phone](#capture-from-your-phone-optional).
 
 ### Do I need API keys to use this?
 Mostly no. The vault commands (`/obsidian-save`, `/obsidian-daily`, etc.) need no API keys. `/research` and `/research-deep` are also key-free now - with no Perplexity key they automatically fall back to free, key-less sources (Wikipedia, HackerNews, arXiv, Reddit, and more) and Claude synthesizes the dossier. The remaining research commands (`/x-read`, `/x-pulse`, `/notebooklm`, `/youtube`, `/podcast`) need their respective keys (xAI Grok, Perplexity, Google Gemini, optionally YouTube Data API v3 / OpenAI Whisper) and exit with a clear setup message when one is missing. The calendar command (`/obsidian-calendar`, all four modes) needs the Google Calendar MCP connector rather than an API key.
