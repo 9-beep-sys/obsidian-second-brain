@@ -52,6 +52,21 @@ def test_cli_keeps_original_provenance_and_source_bytes(
     assert source.read_bytes() == b"original document"
 
 
+def test_a_stalled_converter_times_out_instead_of_hanging(document, monkeypatch, capsys):
+    seen = {}
+
+    def run(command, **kwargs):
+        seen.update(kwargs)
+        raise subprocess.TimeoutExpired(command, kwargs.get("timeout"))
+
+    monkeypatch.setattr(converter.subprocess, "run", run)
+    monkeypatch.setattr(sys, "argv", ["document_to_pdf.py", str(document), "--soffice", "soffice"])
+    assert converter.main() == 1
+    assert seen.get("timeout") == converter.CONVERT_TIMEOUT
+    assert "timed out" in capsys.readouterr().err
+    assert document.read_bytes() == b"original document"
+
+
 @pytest.mark.parametrize("failure", ["exit", "no-output"])
 def test_failed_conversion_cannot_reuse_previous_pdf(document, tmp_path, monkeypatch, failure):
     _converter(monkeypatch)

@@ -23,6 +23,8 @@ PDF_FILTER = "pdf:writer_pdf_Export:" + json.dumps({
         "ReduceImageResolution": False,
     }.items()
 }, separators=(",", ":"))
+# A damaged or hostile document can stall LibreOffice; never let it hang the agent.
+CONVERT_TIMEOUT = 300
 
 
 def convert_document(source: Path, soffice: str | None = None) -> Path:
@@ -45,7 +47,7 @@ def convert_document(source: Path, soffice: str | None = None) -> Path:
                 "--convert-to", PDF_FILTER,
                 "--outdir", str(work), str(staged),
             ],
-            check=True, stdout=sys.stderr,
+            check=True, stdout=sys.stderr, timeout=CONVERT_TIMEOUT,
         )
         pdf = staged.with_suffix(".pdf")
         destination = Path(tempfile.mkdtemp(prefix="obsidian-ingest-")) / pdf.name
@@ -60,7 +62,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         result = convert_document(args.source, args.soffice)
-    except (OSError, subprocess.CalledProcessError) as error:
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
         print(error, file=sys.stderr)
         return 1
     print(result)
