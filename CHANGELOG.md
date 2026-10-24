@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **The test suite could launch your real Obsidian app (#357, reported by @yotamleo).** `print_save_links()` opens every saved research note with `open` / `xdg-open` unless `RESEARCH_AUTOOPEN=0`, and `tests/test_research_deep_fallback.py` saves a note from a subprocess. A plain `pytest` opened Obsidian on a temporary vault and could disturb a real vault's sync. A new `tests/conftest.py` sets `RESEARCH_AUTOOPEN=0` for every test, which subprocesses inherit. A test with a recording stub opener on `PATH` fails without the fixture; a control row shows the stub does see the call when auto-open is on.
+
 ## [0.19.0] - 2026-10-24 - The Check-In
 
 ### Added
