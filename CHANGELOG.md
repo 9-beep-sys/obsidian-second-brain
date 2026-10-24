@@ -6,13 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Added
-
-- **Optional First-Brain wiki-style variant (#330, by @2Obe).** `/obsidian-init` configures a human-maintained source layer and wiki destinations through its existing agent-driven workflow. A source folder spelled differently (`First_Brain/`, `first brain/`) is protected by the exact name init found. Individual ingestion preserves originals, records local provenance, and keeps source conflicts in the derived layer. Protection is instruction-based; no bulk ingestion or background synchronization is introduced.
-
 ### Fixed
 
 - **The Hermes session hook no longer starts a consolidation per turn, and no longer starts one from inside another (#345).** `hooks/hermes-hooks.config.example.yaml` registered the hook on `on_session_end`, which Hermes fires after every turn, and the `hermes -z` run the hook starts fires it again. It is now registered on `on_session_finalize`. The script also refuses to re-enter: the consolidation child gets `OBSIDIAN_HERMES_CONSOLIDATING=1` and a hook that sees it exits, and a per-user mode-0600 lock file (PID inside, stale locks replaced) allows one consolidation at a time. A consolidation also does not start within `OBSIDIAN_HERMES_MIN_INTERVAL` seconds (default 21600, 6 hours; 0 turns it off) of the last one's start, kept in a per-user mode-0600 stamp file next to the lock, which holds even when the marker does not reach a hook run inside the gateway and the child's finalize event lands after its lock is released. The background run no longer inherits the hook's stdout, so the hook returns `{}` at once instead of when the consolidation ends. If you pasted the old block into `~/.hermes/config.yaml`, rename `on_session_end` to `on_session_finalize` there.
+
+- **The SessionStart precedence note reported another plugin as active when it was installed for a different project (#355, reported by @gstrazds).** `scripts/vault_plugin_scan.py` read the hooks manifest of every entry in `installed_plugins.json` and ignored each install's `scope` and `projectPath`, so a `claude-obsidian` installed with `--scope project` in a sibling vault was named in every session of this one, and the model told the user to disable a plugin that never ran there. A `project` or `local` install now counts only in its `projectPath` or a folder under it, and a plugin set to false in `enabledPlugins` (user, project or local settings, the narrower file winning) is skipped. Ten tests cover sibling, same-folder and enclosing installs for both scopes and the enable/disable cases; the sibling and disabled ones fail on the previous `main`.
+
+## [0.19.0] - 2026-10-24 - The Check-In
+
+### Added
+
+- **`/obsidian-checkin` asks you whether old notes still hold.** A fact check compares notes with notes, so news that never reached the vault (a bill settled, a move, a new job) left a note stale and no lint could see it. Check-in asks the owner: up to 3 people or project notes a day whose facts are older than 14 days, family and active projects first. Each card shows the note's name, the date of its facts, and 1 to 3 facts from the note. "Same" stamps a new `last-checked` field; news rewrites the stale claim and propagates; "skip" asks again after 14 days. The open questions live in `<vault>/.checkin.json`, not in the chat, so a host that drops an unanswered question after an hour re-sends the full cards on its next run until they are answered. `scripts/checkin.py` does the picking, the queue and the rendering, so every host sends the same short message. Opt a note out with `checkin: never`, or move it up with `checkin: priority`.
+- **`scripts/check_notes.py` gives hook-less agents the write-time check.** Claude Code checks every vault write through `hooks/validate-ai-first.sh`; Grok Bot, cron agents and scripts that patch files directly were never checked. The new script runs that same hook over a list of notes or over every git-dirty note (`--changed`), with `--fix` for the banned characters (left alone in code fences, wikilink targets and CJK lines), and exits 1 on anything left so an agent can gate its commit on it.
+- **Optional First-Brain wiki-style variant (#330, by @2Obe).** `/obsidian-init` configures a human-maintained source layer and wiki destinations through its existing agent-driven workflow. A source folder spelled differently (`First_Brain/`, `first brain/`) is protected by the exact name init found. Individual ingestion preserves originals, records local provenance, and keeps source conflicts in the derived layer. Protection is instruction-based; no bulk ingestion or background synchronization is introduced.
+
+### Changed
+
+- **`/obsidian-reconcile` acts only on contradictions it can prove.** Subagents now return each side of a contradiction as a note path, a line and a one-line quote copied from that note. The new `scripts/verify_quotes.py` checks both quotes are really there, word for word, before any rewrite or conflict note. A contradiction that fails the check is dropped and listed as unproven, and the log line counts reported, proven and dropped findings. Before this, a contradiction a model misread could rewrite a correct note, and as #258 showed, a wrong claim copied into several notes keeps misleading later sessions. The checker is standard-library only; 12 tests cover real, invented and one-word-changed quotes, wrong line numbers, short and multi-line quotes, paths outside the vault, and Windows/macOS text encodings.
 
 ## [0.18.1] - 2026-10-20
 
