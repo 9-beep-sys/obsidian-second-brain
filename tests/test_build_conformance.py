@@ -191,3 +191,28 @@ def test_python_toolkit_ships_with_its_project(built: Path, platform: str) -> No
             f"{platform} ships {scripts.relative_to(tree).as_posix()} with no "
             "pyproject.toml beside it"
         )
+
+
+@pytest.mark.parametrize("platform", PLATFORMS)
+def test_standalone_search_runs_from_built_tree(built, platform, tmp_path):
+    """The shell entry point must retain its real vault_ops dependency."""
+    import json
+    import os
+    import sys
+
+    scripts = list((built / platform).rglob("vault_search.py"))
+    assert scripts, f"{platform} did not ship vault_search.py"
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "Synthetic.md").write_text("# Orchid\nSynthetic orchid project.\n", encoding="utf-8")
+    for script in scripts:
+        result = subprocess.run(
+            [sys.executable, str(script), "orchid", "--lexical"],
+            cwd=tmp_path,
+            env={"PATH": os.environ.get("PATH", ""), "HOME": str(tmp_path),
+                 "USERPROFILE": str(tmp_path), "OBSIDIAN_VAULT_PATH": str(vault),
+                 "OBSIDIAN_ENV_FILE": str(tmp_path / "missing.env")},
+            capture_output=True, text=True, check=False, timeout=15,
+        )
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout)[0]["path"] == "Synthetic.md"

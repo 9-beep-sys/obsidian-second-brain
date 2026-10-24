@@ -21,27 +21,43 @@ The optional argument is a topic or entity to focus on. If not provided, scan th
    - **Decisions agent**: scan the decisions folder (resolved per `references/folder-map.md`) and project Key Decisions for reversed or superseded decisions that were never updated
    - **Source freshness agent**: compare `raw/` source dates against `wiki/` page dates - flag wiki pages that reference old sources when newer ones exist on the same topic
 
-4. For each contradiction found, evaluate:
+   The claims, entity and decisions agents return each contradiction as two claims, one per side. Each claim has the note's vault-relative `path`, the `line` number, and a `quote`: one line copied character for character from that note, at least 12 characters long. A contradiction without both quotes is not a finding. Pass this format to every subagent.
+
+4. Prove each contradiction before acting on it. Send both claims to the checker (the skill root's absolute path was given at session start as **Skill root**; substitute it for `SKILL_ROOT`):
+
+   ```bash
+   uv run --directory "SKILL_ROOT" scripts/verify_quotes.py --path <vault> <<'EOF'
+   [{"path": "<note path>", "line": 12, "quote": "<line copied from that note>"},
+    {"path": "<other note path>", "line": 40, "quote": "<line copied from that note>"}]
+   EOF
+   ```
+
+   - Both claims must come back `"ok": true`. If either fails, drop the contradiction: no rewrite, no conflict note. List it under **Dropped as unproven** with the `reason` the checker gave.
+   - Use `found_line` from the output, not the line the subagent gave.
+   - Source freshness findings compare dates, not claims, so they skip this step.
+
+   For each proven contradiction, evaluate:
    - **Which source is newer?** (date comparison)
    - **Which source is more authoritative?** (peer-reviewed > blog post > transcript > opinion)
    - **Is this a genuine contradiction or an evolution?** (someone changing their mind is not a contradiction - it's growth)
 
 5. Resolve each contradiction:
-   - **Clear winner**: rewrite the outdated page with current info. Add a `## History` section noting what changed and why: "Previously stated X (source: raw/articles/old-article.md, 2025-11-01). Updated to Y based on newer evidence (source: raw/articles/new-article.md, 2026-03-15)."
-   - **Genuinely ambiguous**: create `Conflict - Topic.md` in the decisions folder (resolved per `references/folder-map.md`; `type: conflict`, schema in `references/ai-first-rules.md`) documenting both sides, the evidence for each, and mark as `status: open` for the user to decide
+   - **Clear winner**: rewrite the outdated page with current info. Add a `## History` section noting what changed and why, with the proven quote it replaced: "Previously stated X (source: raw/articles/old-article.md, 2025-11-01). Updated to Y based on newer evidence (source: raw/articles/new-article.md, 2026-03-15)."
+   - **Genuinely ambiguous**: create `Conflict - Topic.md` in the decisions folder (resolved per `references/folder-map.md`; `type: conflict`, schema in `references/ai-first-rules.md`) documenting both sides with their verbatim quotes and `path:line`, the evidence for each, and mark as `status: open` for the user to decide
    - **Evolution**: update the entity/concept page to reflect the current state and add the historical context
 
 6. After all resolutions:
    - Rebuild affected sections of `index.md`
-   - Append to the operation log: if `Logs/` exists write `**HH:MM** - reconcile | X contradictions found, Y auto-resolved, Z flagged for user` to `Logs/YYYY-MM-DD.md`; otherwise append `## [YYYY-MM-DD] reconcile | X contradictions found, Y auto-resolved, Z flagged for user` to `log.md`
+   - Append to the operation log: if `Logs/` exists write `**HH:MM** - reconcile | X contradictions reported, P proven, D dropped as unproven, Y auto-resolved, Z flagged for user` to `Logs/YYYY-MM-DD.md`; otherwise append `## [YYYY-MM-DD] reconcile | X contradictions reported, P proven, D dropped as unproven, Y auto-resolved, Z flagged for user` to `log.md`
    - Update today's daily note with a reconciliation summary
 
 7. Report back:
    - **Auto-resolved** (list with old claim → new claim and why)
    - **Flagged for user** (genuinely ambiguous - needs human judgment)
    - **Stale pages updated** (pages rewritten with fresher sources)
+   - **Dropped as unproven** (each claim, its `path`, and the checker's `reason`)
 
-The vault should never contain two pages that disagree without knowing they disagree. Contradictions are either resolved or explicitly documented as open questions.
+The vault should never contain two pages that disagree without knowing they disagree. Contradictions are either resolved or explicitly documented as open questions. A contradiction nobody can quote is not resolved at all: rewriting a note to fix a disagreement that is not there puts a new error into the vault.
 
 ---
 
