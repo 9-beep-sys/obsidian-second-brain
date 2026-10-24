@@ -35,6 +35,13 @@ ai-first: true                # explicit flag
 ---
 ```
 
+**Optional check-in fields (any person, project, company, or entity note):**
+```yaml
+last-checked: YYYY-MM-DD      # the owner confirmed or updated the facts; set only by /obsidian-checkin
+checkin: never | priority     # keep the note out of check-ins, or ask about it first
+```
+`last-checked` moves only when the owner looks at the facts. `updated` is the last meaningful update, so a link-only or formatting edit must not touch it.
+
 ### 4. Recency markers per claim
 When stating external facts, attach the date inline:
 
