@@ -31,7 +31,9 @@ def main(argv: list[str] | None = None) -> int:
     except (RuntimeError, OSError) as exc:
         print(f"Vault search failed: {exc}", file=sys.stderr)
         return 2
-    print(json.dumps(results, ensure_ascii=False))
+    # ASCII escapes, not raw UTF-8: a Windows console in a legacy code page cannot
+    # print a CJK or emoji title and would crash after the search succeeded.
+    print(json.dumps(results))
     return 0
 
 

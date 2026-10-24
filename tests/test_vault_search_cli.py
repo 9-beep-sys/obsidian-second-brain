@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "vault_search.py"
 
 
-def run_cli(tmp_path, *args, vault=True):
+def run_cli(tmp_path, *args, vault=True, extra_env=None):
     home = tmp_path / "home"
     home.mkdir(exist_ok=True)
     env = {
@@ -20,6 +20,7 @@ def run_cli(tmp_path, *args, vault=True):
         "OBSIDIAN_ENV_FILE": str(home / "missing.env"),
         "OBSIDIAN_SEARCH_SEMANTIC": "0",
         "PYTHONDONTWRITEBYTECODE": "1",
+        **(extra_env or {}),
     }
     if vault:
         notes = tmp_path / "vault"
@@ -45,6 +46,19 @@ def test_json_result(tmp_path):
     assert len(hits) == 1
     assert hits[0]["path"] == "Synthetic.md"
     assert set(hits[0]) == {"path", "title", "snippet"}
+
+
+def test_non_ascii_result_survives_a_legacy_console(tmp_path):
+    """A Windows console in cp1252 cannot encode CJK. The JSON must still print."""
+    notes = tmp_path / "vault"
+    notes.mkdir()
+    (notes / "習慣.md").write_text(
+        "# 習慣\nOrchid habit notes.\n", encoding="utf-8"
+    )
+    result = run_cli(tmp_path, "orchid", "--lexical", extra_env={"PYTHONIOENCODING": "cp1252"})
+    assert result.returncode == 0, result.stderr
+    titles = [hit["title"] for hit in json.loads(result.stdout)]
+    assert "習慣" in titles
 
 
 def test_empty_result(tmp_path):
