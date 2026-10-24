@@ -124,11 +124,11 @@ def test_hermes_build_generates_native_skills():
         assert '--directory "~' not in text, md
     hooks_doc = REPO_ROOT / "dist/hermes/HOOKS.md"
     assert hooks_doc.is_file()
-    # The on_session_end lifecycle hook (PostCompact analog) and its config ship.
+    # The on_session_finalize lifecycle hook (PostCompact analog) and its config ship.
     assert (REPO_ROOT / "dist/hermes/hooks/obsidian-hermes-session-end.sh").is_file()
     assert (REPO_ROOT / "dist/hermes/hooks/hermes-hooks.config.example.yaml").is_file()
     hooks_text = hooks_doc.read_text(encoding="utf-8")
-    assert "on_session_end" in hooks_text
+    assert "on_session_finalize" in hooks_text
     # Blueprints never arm on install (#134): the docs must teach explicit arming.
     assert "hermes cron create" in hooks_text
     assert "arms as soon as" not in hooks_text

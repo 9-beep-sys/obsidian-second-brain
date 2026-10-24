@@ -134,6 +134,9 @@ Claude transcribes it with a local Whisper install, attributes speakers where th
 **You screenshot a whiteboard:** `/obsidian-ingest photo.png`
 Claude reads the image, extracts text and structure, creates concept notes, links to related projects. A photo becomes knowledge.
 
+**You have a finished text document:** `/obsidian-ingest report.docx`
+Word (`.docx`, `.doc`) and OpenDocument (`.odt`) files uploaded or copied into the vault follow the same local-source rules as PDFs and Markdown. The helper converts a private copy to a temporary PDF, then ingestion uses the existing PDF path. Text and figures use that path; comments and revision markup are excluded. The original stays unchanged and remains the source under the existing provenance rules. Requires Python 3.10+ and [LibreOffice 26.2+](https://www.libreoffice.org/download/download-libreoffice/), installed separately. Run `python scripts/document_to_pdf.py "path/to/report.docx"`; it prints the PDF path. Put `soffice` on PATH or add `--soffice` with its executable path (Windows: `C:/Program Files/LibreOffice/program/soffice.com`; macOS: `/Applications/LibreOffice.app/Contents/MacOS/soffice`). Remove the generated PDF and its temporary parent folder after capture. No additional Python packages are needed. See [the ingest command](commands/obsidian-ingest.md). Presentation and spreadsheet formats remain outside scope.
+
 **You find a great video:** `/obsidian-ingest https://youtube.com/...`
 Claude doesn't summarize into one note. It REWRITES your existing pages. People get updated. Contradictions get resolved. Patterns trigger new synthesis pages. One URL in. The vault is smarter.
 
@@ -176,7 +179,7 @@ Free transcript via youtube-transcript-api. Optional metadata + top comments via
 | Finding patterns | Re-read dozens of notes | `/obsidian-emerge` finds them for you |
 | Challenging yourself | Nobody pushes back | `/obsidian-challenge` uses your own history against you |
 | Session continuity | Re-explain every time | `/obsidian-world` loads full context in 10 seconds |
-| Ingesting content | Read it, forget it | `/obsidian-ingest` rewrites 5-15 vault pages from 1 source (URLs, PDFs, audio, screenshots) |
+| Ingesting content | Read it, forget it | `/obsidian-ingest` rewrites 5-15 vault pages from 1 source (URLs, PDFs, Word/OpenDocument text files, audio, screenshots) |
 | Contradictions | You don't know they exist | `/obsidian-reconcile` resolves them automatically |
 | Synthesis | You connect dots manually | `/obsidian-synthesize` finds patterns across sources on its own |
 | Sharing vault data | Only Claude can read it | `/obsidian-export` gives any AI tool a clean snapshot |
@@ -306,7 +309,7 @@ Free transcript via youtube-transcript-api. Optional metadata + top comments via
 | Command | What it does |
 |---|---|
 | `/obsidian-save` | Saves everything from the conversation -- decisions, tasks, people, ideas |
-| `/obsidian-ingest` | Drop a URL, PDF, audio file, or screenshot. The vault REWRITES itself. 5-15 pages touched per source. |
+| `/obsidian-ingest` | Ingest a URL, file, or resumable folder batch (text, PDFs, `.docx`/`.doc`/`.odt` via LibreOffice, audio, images). The vault REWRITES itself. 5-15 pages touched per source. |
 | `/obsidian-synthesize` | Auto-finds patterns across sources and writes synthesis pages |
 | `/obsidian-reconcile` | Finds contradictions and resolves them. The vault maintains its own truth. |
 | `/obsidian-checkin` | Asks you whether old people and project notes still hold. Shows what each says, re-asks until you answer, saves the news. |
@@ -607,7 +610,11 @@ PostCompact -> obsidian-bg-agent.sh -> claude -p (headless) -> vault updated
 
 ## Vault Architecture
 
-**Starting with personal notes?** `/obsidian-init` offers an optional [First-Brain wiki-style variant](references/vault-schema.md#first-brain-wiki-style-variant) for an existing, evolving collection of human notes. Human notes live in the `First-Brain/` folder, immutable ingestion captures in `raw/`, and AI-maintained knowledge in `wiki/`. Initialization ensures the `First-Brain/` source folder exists and configures ownership and routing; it does not move or ingest notes. Then use `/obsidian-ingest` on an individual First Brain file. Original notes stay in place under instruction-based protection, not a filesystem sandbox. See [the initialization command](commands/obsidian-init.md) for the full procedure.
+**Starting with personal notes?** `/obsidian-init` offers an optional [First-Brain wiki-style variant](references/vault-schema.md#first-brain-wiki-style-variant) for an existing, evolving collection of human notes. Human notes live in the `First-Brain/` folder, immutable ingestion captures in `raw/`, and AI-maintained knowledge in `wiki/`. Initialization ensures the `First-Brain/` source folder exists and configures ownership and routing; it does not move or ingest notes. Then use `/obsidian-ingest` on an individual First Brain file or the collection. Original notes stay in place under instruction-based protection, not a filesystem sandbox. See [the initialization command](commands/obsidian-init.md) for the full procedure.
+
+**Importing a collection?** `/obsidian-ingest Sources/ --preview` discovers eligible text files, PDFs, audio, and images without reading source bodies or writing progress. `/obsidian-ingest Sources/ --batch-size 10` processes up to ten sources sequentially through the existing ingestion workflow. Repeat the same command for the next batch or after an interrupted session has stopped; completed unchanged sources are skipped, and unfinished sources reuse their raw captures. Sensitive-content rules and rewrite approvals still apply. Required pending or declined approvals never count as completion.
+
+Progress uses one hidden completion comment per processed source version in existing `Logs/YYYY-MM-DD.md` files, or legacy `log.md`; there is no separate state file or additional readable status line. The comment contains the source path, byte hash, raw reference, and timestamp. Each source finishes its catalog, daily-note, and normal log updates before the comment is written. Unfinished work has no completion comment and is retried on the next run; errors and pending approvals appear in the normal report. Removing completion history requires reprocessing, with raw deduplication retained. Run only one folder ingestion per vault at a time; this minimal helper does not track active sessions, enforce locking, or validate semantic extraction quality. See [the ingestion procedure](commands/obsidian-ingest.md#directory-ingestion) for supported extensions, provenance hashes, custom routing, and recovery. First Brain warm start is simply `/obsidian-ingest First-Brain/`; other layouts and source collections use the same workflow. Binary originals remain untouched; captures retain existing transcripts, PDF extracts, or image descriptions rather than archive binaries.
 
 Two layouts are supported. `scripts/bootstrap_vault.py` builds the Obsidian-style layout by default: `Daily/`, `People/`, `Projects/` and the preset's topic folders such as `Goals/` and `Mentions/`, as laid out in [references/vault-schema.md](references/vault-schema.md). Pass `--style wiki` for the wiki-style layout below. A preset folder the wiki layout renames moves to that name (`People/` to `wiki/entities/`, `Ideas/` and `Knowledge/` to `wiki/concepts/`); one it does not rename keeps its own name under `wiki/` (`Goals/` to `wiki/goals/`, `Sources/` to `wiki/sources/`), so a preset builds the same vault in either layout.
 
@@ -893,6 +900,10 @@ You need a Telegram bot token, an Anthropic API key, and for voice an OpenAI key
 ---
 
 ## FAQ
+
+### Can I search without an agent?
+Run `uv run python scripts/vault_search.py "query" --limit 6 --lexical` for a JSON result array.
+The script uses `OBSIDIAN_VAULT_PATH` from the environment or toolkit config; omit `--lexical` to follow the existing semantic-search environment setting.
 
 ### Codex vs Claude Code: do I have to pick one?
 No. Crew lets Claude Code, Codex and Cursor work as one team. After every job, each agent writes one line to a shared logbook, and the others read it before they answer. Run `/crew setup` once. See [Crew](#crew-one-logbook-for-all-your-agents).

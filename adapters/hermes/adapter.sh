@@ -52,7 +52,7 @@ adapter_build() {
   _hermes_emit_hooks_doc "$dst"
 }
 
-# Copy the Hermes lifecycle-hook artifacts (the on_session_end maintenance script
+# Copy the Hermes lifecycle-hook artifacts (the on_session_finalize maintenance script
 # and its ~/.hermes/config.yaml hooks-block template) into the build.
 _hermes_copy_hooks() {
   local src="$1" dst="$2"
@@ -242,7 +242,7 @@ _hermes_write_blueprint() {
 }
 
 # Box 4 - the lifecycle-hook story. Shell hooks are declared under `hooks:` in
-# ~/.hermes/config.yaml and fire on plugin events like on_session_end; the
+# ~/.hermes/config.yaml and fire on plugin events like on_session_finalize; the
 # nightly cron job is the cron-native substitute for the Claude PostCompact
 # maintenance pass.
 _hermes_emit_hooks_doc() {
@@ -285,15 +285,16 @@ None of them delete or archive - they only add, update, link.
 ## PostCompact analog (lifecycle hook) - shipped
 
 The Claude PostCompact hook fires on context compaction to propagate the session
-into the vault. Hermes's analog is the `on_session_end` event hook (declared
+into the vault. Hermes's analog is the `on_session_finalize` event hook (declared
 under the `hooks:` block of `~/.hermes/config.yaml`). This build ships it:
 
-- **`hooks/obsidian-hermes-session-end.sh`** - an `on_session_end` hook that, on
+- **`hooks/obsidian-hermes-session-end.sh`** - an `on_session_finalize` hook that, on
   a completed (non-interrupted) session, runs the `obsidian-nightly`
   consolidation pass and prints `{}` (the observer-hook contract). It mirrors the
   Claude bg-agent's trust model exactly: OPT-IN, ships INERT, no-ops unless BOTH
   `OBSIDIAN_VAULT_PATH` and `OBSIDIAN_HERMES_HOOK_ENABLED=1` are set; add/update
-  /link only, never delete or archive.
+  /link only, never delete or archive. It starts at most one consolidation per
+  `OBSIDIAN_HERMES_MIN_INTERVAL` seconds (default 21600, 6 hours; 0 turns it off).
 - **`hooks/hermes-hooks.config.example.yaml`** - the paste-in
   `hooks:` block for `~/.hermes/config.yaml` registering the hook.
 

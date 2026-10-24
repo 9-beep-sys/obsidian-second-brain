@@ -52,6 +52,7 @@ Use the obsidian-second-brain skill. Execute `/obsidian-init`:
 9. Write `_CLAUDE.md`, `index.md`, root `log.md` (pointer), `Logs/YYYY-MM-DD.md` (today's entries), and any new `Bases/*.base` files
 10. Write `<vault>/.claude/CLAUDE.md` holding a single import line, `@../_CLAUDE.md`, unless that file already exists with other content - in which case add the import line to it and leave the rest alone. This is what loads the manual for a Claude Code session started in the vault: Claude Code follows the import natively, with a 4 MiB limit, while the SessionStart hook is capped at 10,000 characters of context and cannot carry a real manual (#270).
 11. Confirm what was written and tell the user to restart their Claude session so the new files take effect
+   - If the selected First-Brain variant has eligible sources, suggest `/obsidian-ingest First-Brain/ --preview` followed by explicit directory ingestion. Use only permitted path metadata to identify candidates, including supported PDFs, audio, and images. Do not launch ingestion or read private bodies to make the suggestion.
 
 If `_CLAUDE.md` already exists: show a diff of what would change and ask before overwriting.
 If `index.md` already exists: regenerate it (it's always a fresh catalog of current vault state).
