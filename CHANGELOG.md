@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **`/obsidian-reconcile` acts only on contradictions it can prove.** Subagents now return each side of a contradiction as a note path, a line and a one-line quote copied from that note. The new `scripts/verify_quotes.py` checks both quotes are really there, word for word, before any rewrite or conflict note. A contradiction that fails the check is dropped and listed as unproven, and the log line counts reported, proven and dropped findings. Before this, a contradiction a model misread could rewrite a correct note, and as #258 showed, a wrong claim copied into several notes keeps misleading later sessions. The checker is standard-library only; 12 tests cover real, invented and one-word-changed quotes, wrong line numbers, short and multi-line quotes, paths outside the vault, and Windows/macOS text encodings.
 
+### Fixed
+
+- **The SessionStart precedence note reported another plugin as active when it was installed for a different project (#355, reported by @gstrazds).** `scripts/vault_plugin_scan.py` read the hooks manifest of every entry in `installed_plugins.json` and ignored each install's `scope` and `projectPath`, so a `claude-obsidian` installed with `--scope project` in a sibling vault was named in every session of this one, and the model told the user to disable a plugin that never ran there. A `project` or `local` install now counts only in its `projectPath` or a folder under it, and a plugin set to false in `enabledPlugins` (user, project or local settings, the narrower file winning) is skipped. Ten tests cover sibling, same-folder and enclosing installs for both scopes and the enable/disable cases; the sibling and disabled ones fail on the previous `main`.
+
 ## [0.18.1] - 2026-10-20
 
 ### Fixed
