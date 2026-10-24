@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- **Six locked dependencies had published security advisories (#356, reported by @yotamleo).** `uv.lock` pinned certifi 2026.4.22, anyio 4.13.0, urllib3 2.7.0, pyasn1 0.6.3, httplib2 0.31.2 and idna 3.13, which carry 2 Critical, 3 High and 1 Moderate advisory on osv.dev between them. They now lock at certifi 2026.10.23, anyio 4.15.1, urllib3 2.8.0, pyasn1 0.6.4, httplib2 0.32.0 and idna 3.20 (typing-extensions moves to 4.16.0 with them). A batch query of all 52 locked packages against osv.dev returns no advisories. Lockfile only; the full suite passes on the new lock.
+
 - **The test suite could launch your real Obsidian app (#357, reported by @yotamleo).** `print_save_links()` opens every saved research note with `open` / `xdg-open` unless `RESEARCH_AUTOOPEN=0`, and `tests/test_research_deep_fallback.py` saves a note from a subprocess. A plain `pytest` opened Obsidian on a temporary vault and could disturb a real vault's sync. A new `tests/conftest.py` sets `RESEARCH_AUTOOPEN=0` for every test, which subprocesses inherit. A test with a recording stub opener on `PATH` fails without the fixture; a control row shows the stub does see the call when auto-open is on.
 
 ## [0.19.0] - 2026-10-24 - The Check-In
