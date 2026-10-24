@@ -83,6 +83,8 @@ Every vault-writing command must honor the **First Brain Protection** section in
 
 Initialization is performed by the agent following `commands/obsidian-init.md`, using filesystem tools to create missing directories and `references/folder-map.md` to resolve destinations. The command remains the source of truth for initialization, Bases, logging, and preservation of existing manuals; no dedicated initialization script is required for this variant.
 
+To warm-start from the collection, explicitly run `/obsidian-ingest First-Brain/ --preview`, then `/obsidian-ingest First-Brain/ --batch-size 10`. Directory ingestion also accepts PDFs, audio, and images supported by single-source ingestion. It records progress in existing operation logs and resumes on subsequent invocations; initialization does not run it automatically. The same directory workflow works with other source collections and layouts.
+
 ---
 
 ## Obsidian-Style (Human-First)
@@ -231,7 +233,8 @@ tags:
   - source
 source_type: article   # article | transcript | pdf | video
 source_url: "https://..."
-source_path: ""       # optional local original, e.g. First-Brain/Meetings/Discussion.md
+source_path: ""       # local original, e.g. First-Brain/Meetings/Discussion.md; absolute outside vault
+source_file_hash: ""  # optional full SHA-256 of original bytes for directory progress
 content_hash: ""       # first 16 hex of SHA-256 over the canonical text (see /obsidian-ingest step 5); drift detection
 ---
 ```

@@ -18,6 +18,10 @@ Two places register a SessionStart command hook:
    and `.claude/settings.local.json`. Entries live under `hooks.SessionStart[].hooks[]`.
 2. Plugins - each installed plugin's own `hooks/hooks.json`, in the same shape.
    `~/.claude/plugins/installed_plugins.json` maps a plugin name to its `installPath`.
+   Only installs that load in this session count (#355): a `project` or `local`
+   install applies to its `projectPath` and the folders under it, and a plugin set
+   to false in `enabledPlugins` (user, then project, then local settings, the
+   narrower file winning) does not run at all.
 
 Every read is defensive. This runs inside the SessionStart hook, where an exception
 costs the session its skill root and its vault manual, so a malformed settings file
@@ -99,18 +103,54 @@ def _settings_files(home: Path, project_dir: Path | None) -> list[Path]:
     return files
 
 
-def _plugin_manifests(home: Path) -> list[tuple[str, Path]]:
-    """(plugin name, its hooks.json) for every installed plugin that ships one."""
+def _disabled_plugins(home: Path, project_dir: Path | None) -> set[str]:
+    """Plugin names set to false in `enabledPlugins` for this session.
+
+    Later settings files override earlier ones, as in Claude Code, so a project can
+    turn back on a plugin the user turned off. Only an explicit false counts: an
+    install with no entry is left enabled, which is how a user-scope install looks.
+    """
+    enabled: dict[str, object] = {}
+    for path in _settings_files(home, project_dir):
+        entries = _load_json(path).get("enabledPlugins")
+        if isinstance(entries, dict):
+            enabled.update(entries)
+    return {str(name) for name, value in enabled.items() if value is False}
+
+
+def _applies_here(install: dict, project_dir: Path | None) -> bool:
+    """True when this install loads in a session started in `project_dir`.
+
+    A `project` or `local` install belongs to its `projectPath`. A session in that
+    folder or one under it counts, since missing a real collision costs more than
+    a note about one; a sibling project does not.
+    """
+    if install.get("scope") not in ("project", "local"):
+        return True
+    project_path = install.get("projectPath")
+    if project_dir is None or not isinstance(project_path, str):
+        return False
+    try:
+        here = project_dir.resolve()
+        there = Path(project_path).resolve()
+    except (OSError, RuntimeError, ValueError):
+        return False
+    return here == there or there in here.parents
+
+
+def _plugin_manifests(home: Path, project_dir: Path | None) -> list[tuple[str, Path]]:
+    """(plugin name, its hooks.json) for every plugin this session loads that ships one."""
     registry = _load_json(home / ".claude" / "plugins" / "installed_plugins.json")
     plugins = registry.get("plugins")
     if not isinstance(plugins, dict):
         return []
+    disabled = _disabled_plugins(home, project_dir)
     manifests: list[tuple[str, Path]] = []
     for name, installs in plugins.items():
-        if not isinstance(installs, list):
+        if not isinstance(installs, list) or str(name) in disabled:
             continue
         for install in installs:
-            if not isinstance(install, dict):
+            if not isinstance(install, dict) or not _applies_here(install, project_dir):
                 continue
             install_path = install.get("installPath")
             if not isinstance(install_path, str):
@@ -150,7 +190,7 @@ def scan(home: Path | None = None, project_dir: Path | None = None) -> list[dict
             if _is_other_vault_tool(command):
                 record(str(path), command)
 
-    for name, manifest in _plugin_manifests(home):
+    for name, manifest in _plugin_manifests(home, project_dir):
         for command in _commands(_load_json(manifest)):
             if _is_other_vault_tool(command):
                 record(f"plugin: {name}", command)

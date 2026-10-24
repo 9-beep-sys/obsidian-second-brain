@@ -86,6 +86,24 @@ def test_first_brain_variant_ships_agent_initialization_and_ownership_rules(buil
 
 
 @pytest.mark.parametrize("platform", PLATFORMS)
+def test_directory_ingestion_helper_and_spec_ship(built: Path, platform: str) -> None:
+    tree = built / platform
+    helper = next(tree.rglob("ingest_batch.py"))
+    assert helper.stat().st_size > 0
+    rules = next(tree.rglob("ai-first-rules.md")).read_text(encoding="utf-8")
+    assert "source_file_hash:" in rules
+    # Command bodies are translated; the public flags and script name must survive.
+    ingests = [p for p in tree.rglob("*.md") if p.stem == "obsidian-ingest"
+               or (p.name == "SKILL.md" and p.parent.name == "obsidian-ingest")]
+    assert ingests
+    for path in ingests:
+        text = path.read_text(encoding="utf-8")
+        assert "ingest_batch.py" in text
+        assert "--batch-size" in text
+        assert "ingest-complete" in text
+
+
+@pytest.mark.parametrize("platform", PLATFORMS)
 def test_build_emits_a_non_empty_tree(built: Path, platform: str) -> None:
     """A build that exits 0 with an empty output tree is the failure mode CI
     could not see. Assert content, not just that the directory exists."""
@@ -191,3 +209,28 @@ def test_python_toolkit_ships_with_its_project(built: Path, platform: str) -> No
             f"{platform} ships {scripts.relative_to(tree).as_posix()} with no "
             "pyproject.toml beside it"
         )
+
+
+@pytest.mark.parametrize("platform", PLATFORMS)
+def test_standalone_search_runs_from_built_tree(built, platform, tmp_path):
+    """The shell entry point must retain its real vault_ops dependency."""
+    import json
+    import os
+    import sys
+
+    scripts = list((built / platform).rglob("vault_search.py"))
+    assert scripts, f"{platform} did not ship vault_search.py"
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "Synthetic.md").write_text("# Orchid\nSynthetic orchid project.\n", encoding="utf-8")
+    for script in scripts:
+        result = subprocess.run(
+            [sys.executable, str(script), "orchid", "--lexical"],
+            cwd=tmp_path,
+            env={"PATH": os.environ.get("PATH", ""), "HOME": str(tmp_path),
+                 "USERPROFILE": str(tmp_path), "OBSIDIAN_VAULT_PATH": str(vault),
+                 "OBSIDIAN_ENV_FILE": str(tmp_path / "missing.env")},
+            capture_output=True, text=True, check=False, timeout=15,
+        )
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout)[0]["path"] == "Synthetic.md"

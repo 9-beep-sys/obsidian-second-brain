@@ -741,12 +741,16 @@ A guided conversation (intent, name, category, trigger phrases, behavior steps, 
 
 **Ingests a source into the vault - one source touches many pages.** Full steps in `commands/obsidian-ingest.md` (the source of truth). Read that file before running an ingest; the summary here is an orientation, not the procedure.
 
+Directories use the same workflow in bounded sequential batches: `/obsidian-ingest Sources/ --preview`, then `/obsidian-ingest Sources/ --batch-size 10`. Supported local text, PDF, audio, and image formats are discovered recursively after exclusions; read permissions are resolved before hashing or extraction. One hidden completion comment is appended to the existing operation log only after all required approvals and structural updates finish. Repeat the same command to continue or retry unfinished work, reusing raw captures. Errors and pending approvals are reported without persistent status tracking. Run only one folder ingestion per vault at a time; the helper has no active-session tracking or locking. Preserve source bytes and paths, resolve overlapping output routes before writing, and pass source protection to every worker. Warm start is `/obsidian-ingest First-Brain/` and requires no separate command. See the command's completion format and recovery rules rather than treating raw-capture existence as completion.
+
 In the First-Brain variant, read the selected local source in place, preserve its bytes and path, and record its vault-relative `source_path` in the raw capture. Derived and ancillary writes follow the manual's routes; conflicts involving human originals are recorded in the derived layer. Sensitive-content rules and the current rewrite policy still apply.
+
+Word/OpenDocument text files (`.docx`, `.doc`, `.odt`) follow the same local-source rules as other files. Use `scripts/document_to_pdf.py` to convert the selected in-vault document to a temporary PDF, then use the existing PDF reading step. Requires Python 3.10+ and LibreOffice 26.2+ (`soffice` on PATH or `--soffice`). Comments and revision markup are excluded. The original remains the source under the existing provenance rules. See the command for invocation and cleanup.
 
 Steps:
 1. Accept a URL, file path, or pasted text as the source
-2. Classify the source type before full read: article, PDF, transcript, video, or raw text
-3. Read or fetch the full source content
+2. Classify the source type before full read: article, PDF/text document, transcript, video, or raw text
+3. Read or fetch the full source content; convert `.docx`, `.doc`, and `.odt` to PDF before the shared PDF step
 4. Extract: entities (people, companies, tools), concepts, claims, action items, notable quotes
 5. Save the raw source to `raw/articles/YYYY-MM-DD - Source Title.md` (or `transcripts/`, `pdfs/`, `videos/`), verbatim and immutable, with `type: source` frontmatter and a `content_hash` over the canonical text. Check `raw/` for that hash and for the same normalized `source_url` first: a source already in the vault gets no second raw note, and the run becomes a re-read
 6. REWRITE the vault. Adding pages is not enough. Spawn parallel subagents (entities, projects, ideas, concepts, contradictions) that make existing pages smarter, more connected, and more current
@@ -946,7 +950,7 @@ If `index.md` doesn't exist, offer to run `/obsidian-init` to generate it.
 
 ## Research Commands
 
-Seven commands that pull external knowledge into the vault - X posts, X discourse, web research with citations, vault-grounded synthesis, YouTube videos, and podcast episodes (plus `/obsidian-ingest` above for arbitrary URLs, PDFs, audio, and screenshots). All output AI-first notes per the vault's Section 0 rule (preamble, rich frontmatter, recency markers, mandatory wikilinks, sources verbatim).
+Seven commands that pull external knowledge into the vault - X posts, X discourse, web research with citations, vault-grounded synthesis, YouTube videos, and podcast episodes (plus `/obsidian-ingest` above for arbitrary URLs, PDFs, Word/OpenDocument text files, audio, and screenshots). All output AI-first notes per the vault's Section 0 rule (preamble, rich frontmatter, recency markers, mandatory wikilinks, sources verbatim).
 
 **Setup:** API keys live at `~/.config/obsidian-second-brain/.env`. Run `install.sh` and answer "y" to the research toolkit prompt, or copy `.env.example` manually. The xAI Grok key is required for `/x-read` and `/x-pulse`. Perplexity is optional: with no `PERPLEXITY_API_KEY` set, `/research` and `/research-deep` fall back to free key-less sources automatically, and `--free` forces that path even when a key exists (`--academic` restricts it to scholarly sources). YouTube key is optional; transcripts work without it. Never tell a user a research command is unavailable because they lack a Perplexity key.
 
