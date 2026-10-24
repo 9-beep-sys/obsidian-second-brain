@@ -49,7 +49,9 @@ def write_json(path: Path, data: dict) -> Path:
     return path
 
 
-def install_plugin(home: Path, name: str, hooks: dict) -> Path:
+def install_plugin(
+    home: Path, name: str, hooks: dict, scope: str = "user", project_path: Path | None = None
+) -> Path:
     """Register a plugin in installed_plugins.json and give it a hooks manifest."""
     install_path = home / ".claude" / "plugins" / "cache" / name / "1.0.0"
     write_json(install_path / "hooks" / "hooks.json", hooks)
@@ -57,7 +59,10 @@ def install_plugin(home: Path, name: str, hooks: dict) -> Path:
     registry = json.loads(registry_path.read_text()) if registry_path.is_file() else {
         "version": 2, "plugins": {}
     }
-    registry["plugins"][name] = [{"scope": "user", "installPath": str(install_path)}]
+    install = {"scope": scope, "installPath": str(install_path)}
+    if project_path is not None:
+        install["projectPath"] = str(project_path)
+    registry["plugins"][name] = [install]
     write_json(registry_path, registry)
     return install_path
 
@@ -155,6 +160,64 @@ def test_one_command_is_reported_once(home, project):
             {"type": "command", "command": command}
         ]}]}
     })
+    assert len(vault_plugin_scan.scan(home=home, project_dir=project)) == 1
+
+
+# ── install scope and enablement (#355) ─────────────────────────────────────
+
+@pytest.mark.parametrize("scope", ["project", "local"])
+def test_a_plugin_installed_for_a_sibling_project_is_not_reported(home, project, scope):
+    """A project-scoped install only loads in its own project. Its hook never runs
+    in this session, so a note saying it does sends the user hunting for a
+    misconfiguration that is not there."""
+    sibling = project.parent / "other-vault"
+    sibling.mkdir()
+    install_plugin(home, "claude-obsidian", OTHER_PLUGIN_HOOKS, scope=scope, project_path=sibling)
+    assert vault_plugin_scan.scan(home=home, project_dir=project) == []
+
+
+@pytest.mark.parametrize("scope", ["project", "local"])
+def test_a_plugin_installed_for_this_project_is_found(home, project, scope):
+    install_plugin(home, "claude-obsidian", OTHER_PLUGIN_HOOKS, scope=scope, project_path=project)
+    assert len(vault_plugin_scan.scan(home=home, project_dir=project)) == 1
+
+
+def test_a_plugin_installed_for_an_enclosing_project_is_found(home, project):
+    """A session started in a subfolder of the project the plugin was installed
+    for. Missing a real collision is the costlier mistake here, so this stays in."""
+    sub = project / "notes"
+    sub.mkdir()
+    install_plugin(home, "claude-obsidian", OTHER_PLUGIN_HOOKS, scope="project",
+                   project_path=project)
+    assert len(vault_plugin_scan.scan(home=home, project_dir=sub)) == 1
+
+
+def test_a_project_scoped_plugin_is_skipped_without_a_project(home):
+    """scan() falls back to no project when the working directory is unreadable.
+    Nothing then says the install applies, so it is not reported."""
+    install_plugin(home, "claude-obsidian", OTHER_PLUGIN_HOOKS, scope="project",
+                   project_path=home / "somewhere")
+    assert vault_plugin_scan._plugin_manifests(home, None) == []
+
+
+@pytest.mark.parametrize("settings_file", ["settings.json", "settings.local.json"])
+def test_a_plugin_disabled_for_this_project_is_not_reported(home, project, settings_file):
+    install_plugin(home, "claude-obsidian", OTHER_PLUGIN_HOOKS)
+    write_json(project / ".claude" / settings_file, {"enabledPlugins": {"claude-obsidian": False}})
+    assert vault_plugin_scan.scan(home=home, project_dir=project) == []
+
+
+def test_a_plugin_disabled_for_the_user_is_not_reported(home, project):
+    install_plugin(home, "claude-obsidian", OTHER_PLUGIN_HOOKS)
+    write_json(home / ".claude" / "settings.json", {"enabledPlugins": {"claude-obsidian": False}})
+    assert vault_plugin_scan.scan(home=home, project_dir=project) == []
+
+
+def test_a_project_can_re_enable_a_plugin_the_user_disabled(home, project):
+    """The narrower settings file wins, as it does in Claude Code."""
+    install_plugin(home, "claude-obsidian", OTHER_PLUGIN_HOOKS)
+    write_json(home / ".claude" / "settings.json", {"enabledPlugins": {"claude-obsidian": False}})
+    write_json(project / ".claude" / "settings.json", {"enabledPlugins": {"claude-obsidian": True}})
     assert len(vault_plugin_scan.scan(home=home, project_dir=project)) == 1
 
 

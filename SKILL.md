@@ -109,7 +109,7 @@ See `references/vault-schema.md` for full structural details.
 ## Core Operating Principles
 
 ### AI-first vault rule (applies to every note)
-The vault is designed for **future agent** to read and reason over, not for human review. Every note Claude writes - across all 48 commands - must follow `references/ai-first-rules.md`:
+The vault is designed for **future agent** to read and reason over, not for human review. Every note Claude writes - across all 49 commands - must follow `references/ai-first-rules.md`:
 
 1. **Self-contained context** - each note explains itself; don't rely on backlinks alone
 2. **"For future agent" preamble** - 2-3 sentence summary so any compatible agent can decide relevance in 10 seconds
@@ -641,6 +641,21 @@ Steps:
    - **Ambiguous**: create `wiki/decisions/Conflict - Topic.md` with both sides, mark `status: open`
    - **Evolution**: update the page to current state with historical context
 5. Rebuild affected `index.md` sections, append an operation-log entry (if `Logs/` exists write the entry to `Logs/YYYY-MM-DD.md`, otherwise append to `log.md` (SKILL.md's own rule: the root `log.md` is a pointer file in v0.9+ vaults, never an entry target)), update daily note
+
+---
+
+### `/obsidian-checkin`
+
+**Asks the owner whether old people and project notes still hold.**
+
+Reconcile compares notes with notes, so news that never reached the vault leaves a note stale and invisible to every lint. Check-in asks the only source left: the owner. Full playbook in `commands/obsidian-checkin.md`; the deterministic half is `scripts/checkin.py`.
+
+Modes:
+- `ask` (daily): `checkin.py pick` returns up to 3 notes whose facts are older than 14 days (family, strong relationships and `checkin: priority` first, then active projects, then the most linked). Condense each into 1 to 3 facts from the note itself, open a card with `checkin.py ask`, send `checkin.py message` verbatim.
+- `nudge` (every few hours): resend `checkin.py message`. It repeats every open card in full with a reminder count, because the open list lives in `<vault>/.checkin.json`, not in the chat a host may drop.
+- `answer`: "same" stamps `last-checked`; news rewrites the stale claim (stamped `stated by <owner> YYYY-MM-DD`, unknowns `TBD`), propagates, runs `scripts/check_notes.py --fix`, then closes the card; "skip" closes without a stamp.
+
+Which date counts: `last-checked`, else `updated`, else `date`. Never touch `updated:` on a link-only or formatting edit. Check-in messages hold family, health and money facts: send them to the owner directly, never to a group or a shared log.
 
 ---
 
@@ -1370,3 +1385,5 @@ The default install path (`scripts/setup.sh`) writes `OBSIDIAN_VAULT_PATH` into 
 - `scripts/setup.sh` - One-command installer (wires hook + env var + MCP)
 - `scripts/bootstrap_vault.py` - Bootstrap a complete vault from scratch
 - `scripts/vault_health.py` - Audit a vault for structural issues
+- `scripts/checkin.py` - Pick old people and project notes, keep the open check-in questions in `<vault>/.checkin.json`, render the cards, stamp `last-checked` (used by `/obsidian-checkin`)
+- `scripts/check_notes.py` - Run the write-time AI-first hook over a list of notes, for hosts with no hook runtime (Grok Bot, cron agents); `--fix` rewrites banned characters, exit 1 on anything left

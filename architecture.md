@@ -10,7 +10,7 @@ Last reviewed against commit `ff0319c` (2026-06-05).
 
 obsidian-second-brain is a cross-CLI **skill** (not a plugin, not a hosted service) that turns any Obsidian vault into an AI-first second brain. One platform-neutral command source compiles to eight AI CLIs - Claude Code, Codex CLI, Gemini CLI, OpenCode, Antigravity, Hermes, Pi, Grok Bot - through a build-time adapter pattern. At runtime a slash command reads and writes the user's vault as plain markdown; commands shell out to Python helpers for anything deterministic (vault health, research fetches, codebase scans).
 
-- **48 commands**, grouped by `category:` frontmatter: vault 16, thinking 14, research 8, meta 10.
+- **49 commands**, grouped by `category:` frontmatter: vault 17, thinking 14, research 8, meta 10.
 - **47 commands are cross-platform.** Only `/obsidian-calendar` carries `exclude: [codex-cli, gemini-cli, opencode, hermes, pi, agent-skills, grok-bot]` because it depends on the Google Calendar MCP, so it ships on Claude Code only. The Codex / Gemini / OpenCode / Hermes / Pi / Agent Skills / Grok Bot builds ship 47.
 - A research toolkit that is key-less by default (free public sources) and uses Grok + Perplexity + Gemini when keys are present.
 - An opt-in background agent plus optional user-scheduled agents.
@@ -38,7 +38,7 @@ The AI-first vault rule ties it all together: every note a command writes is des
 
 | Path | Role |
 |---|---|
-| `commands/` | 48 slash-command definitions, one `.md` each. The platform-neutral source and the product surface. |
+| `commands/` | 49 slash-command definitions, one `.md` each. The platform-neutral source and the product surface. |
 | `references/` | Shared specs the commands link to. `ai-first-rules.md` is the canonical, non-negotiable vault-write spec. |
 | `scripts/` | Python and Shell engine: build orchestrator, vault tooling, research toolkit, codebase scanner. |
 | `adapters/` | Platform translation layer. `lib.sh` plus one `adapter.sh` per CLI. |
