@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-25 - The Batch
+
 ### Added
 
 - **Resumable directory ingestion (#329, by @2Obe).** `/obsidian-ingest` accepts mixed collections of text, PDFs, audio, and images in bounded sequential batches. It reuses existing extraction, raw deduplication, routing, and approval rules. A small helper appends one hidden completion comment per processed source version to the existing operation log. Repeating the command skips completed unchanged sources and retries unfinished work using existing captures. No start records, attempt IDs, persistent error/approval states, or locking are introduced. First Brain warm start is a directory-ingestion use case; no new command or progress file is introduced.
